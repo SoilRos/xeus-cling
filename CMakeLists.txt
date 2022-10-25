@@ -103,11 +103,9 @@ add_definitions(-DLLVM_DIR="${LLVM_BINARY_DIR}")
 # Dependencies #
 ################
 
-set(xeus_REQUIRED_VERSION 1.0.0)
-set(cppzmq_REQUIRED_VERSION 4.3.0)
+set(xeus-zmq_REQUIRED_VERSION 1.0.0)
 
-find_package(xeus ${xeus_REQUIRED_VERSION} REQUIRED)
-find_package(cppzmq ${cppzmq_REQUIRED_VERSION} REQUIRED)
+find_package(xeus-zmq ${xeus-zmq_REQUIRED_VERSION} REQUIRED)
 find_package(pugixml REQUIRED)
 
 find_package(Clang REQUIRED)
@@ -130,15 +128,8 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4018 /wd4267 /wd4715 /wd4146 /wd4129")
 endif()
 
-OPTION(DISABLE_ARCH_NATIVE "disable -march=native flag" OFF)
-
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-parameter -Wextra -Wreorder")
-    if (DISABLE_ARCH_NATIVE)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=generic")
-    else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
-    endif()
 
     CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
 
@@ -226,7 +217,7 @@ target_include_directories(xeus-cling
                            PUBLIC
                            $<BUILD_INTERFACE:${XEUS_CLING_INCLUDE_DIR}>
                            $<INSTALL_INTERFACE:include>)
-target_link_libraries(xeus-cling PUBLIC clingInterpreter clingMetaProcessor clingUtils xeus pugixml cxxopts::cxxopts)
+target_link_libraries(xeus-cling PUBLIC clingInterpreter clingMetaProcessor clingUtils xeus-zmq pugixml cxxopts::cxxopts)
 
 set_target_properties(xeus-cling PROPERTIES
                       PUBLIC_HEADER "${XEUS_CLING_HEADERS}"
@@ -339,14 +330,9 @@ endif(MSVC)
 # Tests #
 #########
 
-OPTION(BUILD_TESTS "xeus-cling test suite" OFF)
-OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
+OPTION(XEUS_CLING_BUILD_TESTS "xeus-cling test suite" OFF)
 
-if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
-    set(BUILD_TESTS ON)
-endif()
-
-if(BUILD_TESTS)
+if(XEUS_CLING_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
@@ -400,8 +386,13 @@ install(DIRECTORY ${XCPP_TAGCONFS_DIR}
         DESTINATION ${XEUS_CLING_CONF_DIR})
 
 # Add definitions for the kernel to find tagfiles.
-add_definitions(-DXCPP_TAGFILES_DIR="${XEUS_CLING_DATA_DIR}/tagfiles")
-add_definitions(-DXCPP_TAGCONFS_DIR="${XEUS_CLING_CONF_DIR}/tags.d")
+add_definitions(-DXCPP_TAGFILES_DIR="${CMAKE_INSTALL_PREFIX}/${XEUS_CLING_DATA_DIR}/tagfiles")
+if(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    # install into /etc instead of /usr/etc
+    add_definitions(-DXCPP_TAGCONFS_DIR="/${XEUS_CLING_CONF_DIR}/tags.d")
+else()
+    add_definitions(-DXCPP_TAGCONFS_DIR="${CMAKE_INSTALL_PREFIX}/${XEUS_CLING_CONF_DIR}/tags.d")
+endif()
 
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
